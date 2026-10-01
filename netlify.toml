@@ -1,0 +1,21 @@
+[build]
+  command = "npm run build"
+  publish = "dist"
+  functions = "netlify/functions"
+
+[[redirects]]
+  from = "/api/video/create"
+  to = "/.netlify/functions/video-create"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/api/video/status"
+  to = "/.netlify/functions/video-status"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
