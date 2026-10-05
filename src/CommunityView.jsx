@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
-import { Bookmark, Heart, MessageCircle, MoreHorizontal, Play, Send, Sparkles, UserPlus, Users, X } from 'lucide-react';
+import React, { useMemo, useState } from 'react';
+import { Bookmark, Heart, MessageCircle, MoreHorizontal, Play, Send, Sparkles, UserCheck, UserPlus, X } from 'lucide-react';
 
 const DREAMS = [
   {
     id: 1,
+    userId: 'mistdream',
     author: '雾岛眠',
     handle: '@mistdream',
     title: '在鲸鱼背上经过一座发光的城',
@@ -18,6 +19,7 @@ const DREAMS = [
   },
   {
     id: 2,
+    userId: 'cloud17',
     author: '十七层云',
     handle: '@cloud17',
     title: '空荡学校的最后一间教室',
@@ -32,6 +34,7 @@ const DREAMS = [
   },
   {
     id: 3,
+    userId: 'nocturne',
     author: '早睡失败者',
     handle: '@nocturne',
     title: '我在云层里找到一列慢车',
@@ -51,48 +54,52 @@ const INITIAL_COMMENTS = [
   { name: '白昼信使', text: '这个画面的光线很安静，鲸鱼的呼吸节奏也很舒服。', time: '3 分钟前' }
 ];
 
-function DreamCard({ dream, onOpenComments, onMessage }) {
+function DreamCard({ dream, isFollowing, onToggleFollow, onOpenComments }) {
   const [liked, setLiked] = useState(false);
   const [saved, setSaved] = useState(false);
   const [echoed, setEchoed] = useState(false);
 
   return (
-    <article className="community-card">
+    <article className="community-card social-card">
       <div className={`community-visual ${dream.theme}`}>
-        <div className="community-orb" />
-        <button className="community-play" aria-label="播放梦境影像"><Play size={22} fill="currentColor" /></button>
-        <span className="community-duration">00:15</span>
+        <button className="community-play single-video-button" aria-label={`播放${dream.title}`}><Play size={24} fill="currentColor" /></button>
       </div>
       <div className="community-card-body">
+        <h2 className="community-card-title">{dream.title}</h2>
         <header className="community-author">
           <span className={`community-avatar avatar-${dream.id}`}>{dream.author.slice(0, 1)}</span>
           <div><b>{dream.author}</b><small>{dream.handle} · {dream.time}</small></div>
-          <button aria-label="更多操作"><MoreHorizontal size={18} /></button>
+          <button className={isFollowing ? 'follow-button following' : 'follow-button'} onClick={() => onToggleFollow(dream.userId)}>
+            {isFollowing ? <><UserCheck size={14} />已关注</> : <><UserPlus size={14} />关注</>}
+          </button>
+          <button className="more-button" aria-label="更多操作"><MoreHorizontal size={18} /></button>
         </header>
-        <h2>{dream.title}</h2>
         <p>{dream.excerpt}</p>
         <div className="community-tags">
           {dream.symbols.map((tag) => <span key={tag}>#{tag}</span>)}
           {dream.moods.map((tag) => <span className="mood-tag" key={tag}>#{tag}</span>)}
         </div>
-        <div className="community-privacy-note">公开内容仅包含梦境描述与标签，不含梦境解析或个人情绪总结</div>
         <footer className="community-actions">
-          <button className={liked ? 'active' : ''} onClick={() => setLiked(!liked)}><Heart size={17} fill={liked ? 'currentColor' : 'none'} /> {dream.likes + (liked ? 1 : 0)}</button>
-          <button onClick={() => onOpenComments(dream)}><MessageCircle size={17} /> {dream.comments}</button>
-          <button className={echoed ? 'active' : ''} onClick={() => setEchoed(!echoed)}><Sparkles size={17} /> {echoed ? '我也梦到过' : dream.echoes}</button>
-          <button className={saved ? 'active push-right' : 'push-right'} onClick={() => setSaved(!saved)}><Bookmark size={17} fill={saved ? 'currentColor' : 'none'} /></button>
-          <button className="message-author" onClick={() => onMessage(dream)}><Send size={16} /> 私信</button>
+          <button className={liked ? 'active' : ''} onClick={() => setLiked(!liked)}><Heart size={18} fill={liked ? 'currentColor' : 'none'} /> {dream.likes + (liked ? 1 : 0)}</button>
+          <button onClick={() => onOpenComments(dream)}><MessageCircle size={18} /> {dream.comments}</button>
+          <button className={echoed ? 'active' : ''} onClick={() => setEchoed(!echoed)}><Sparkles size={18} /> {echoed ? '共梦' : dream.echoes}</button>
+          <button className={saved ? 'active push-right' : 'push-right'} onClick={() => setSaved(!saved)}><Bookmark size={18} fill={saved ? 'currentColor' : 'none'} /></button>
         </footer>
       </div>
     </article>
   );
 }
 
-export default function CommunityView({ onCreate, onMessage }) {
+export default function CommunityView({ following, onToggleFollow }) {
   const [filter, setFilter] = useState('推荐');
   const [activeDream, setActiveDream] = useState(null);
   const [comments, setComments] = useState(INITIAL_COMMENTS);
   const [comment, setComment] = useState('');
+  const filteredDreams = useMemo(() => {
+    if (filter === '关注') return DREAMS.filter((item) => following.includes(item.userId));
+    if (filter === '同城') return DREAMS.slice(0, 2);
+    return DREAMS;
+  }, [filter, following]);
 
   const submitComment = () => {
     if (!comment.trim()) return;
@@ -101,25 +108,16 @@ export default function CommunityView({ onCreate, onMessage }) {
   };
 
   return (
-    <section className="subpage community-page">
-      <header className="subpage-hero community-hero">
-        <div><div className="eyebrow"><Users size={14} /> DREAM COMMONS</div><h1>梦境广场</h1><p>分享梦的画面与感受，在保持解析私密的前提下交流。</p></div>
-        <button className="subpage-primary" onClick={onCreate}><Sparkles size={17} /> 记录并分享梦境</button>
-      </header>
-
-      <div className="community-toolbar">
-        <div>{['推荐', '最新', '关注'].map((item) => <button key={item} className={filter === item ? 'active' : ''} onClick={() => setFilter(item)}>{item}</button>)}</div>
-        <span><UserPlus size={14} /> 未关注用户可发送 1 条私信；对方回复后即可继续对话</span>
+    <section className="subpage community-page social-home xhs-home">
+      <div className="community-toolbar social-tabs xhs-tabs">
+        <div>{['关注', '推荐', '同城'].map((item) => <button key={item} className={filter === item ? 'active' : ''} onClick={() => setFilter(item)}>{item}</button>)}</div>
       </div>
 
-      <div className="community-layout">
-        <div className="community-feed">{DREAMS.map((dream) => <DreamCard key={dream.id} dream={dream} onOpenComments={setActiveDream} onMessage={onMessage} />)}</div>
-        <aside className="community-guide">
-          <span>SHARING BOUNDARY</span><h3>分享边界</h3>
-          <div><b>公开展示</b><p>影像、标题、描述、意象标签、情绪标签与互动数据。</p></div>
-          <div><b>保持私密</b><p>传统解梦、心理观察、周/月情绪总结与私人补充记录。</p></div>
-          <div><b>联系规则</b><p>未关注可发一条私信；对方回复后，双方即可持续对话。互相关注不再是私信的必要条件。</p></div>
-        </aside>
+      <div className="community-layout social-layout feed-only">
+        <div className="community-feed social-feed">
+          {filteredDreams.map((item) => <DreamCard key={item.id} dream={item} isFollowing={following.includes(item.userId)} onToggleFollow={onToggleFollow} onOpenComments={setActiveDream} />)}
+          {!filteredDreams.length ? <div className="feed-empty"><UserPlus size={28} /><h3>还没有关注的人</h3><p>从推荐页关注感兴趣的梦境作者，他们的分享会出现在这里。</p></div> : null}
+        </div>
       </div>
 
       {activeDream ? (

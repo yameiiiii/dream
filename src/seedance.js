@@ -15,7 +15,7 @@ async function request(path, options, accessCode) {
     ...options,
     headers: {
       'Content-Type': 'application/json',
-      'x-demo-access-code': accessCode,
+      'x-demo-access-code': accessCode.trim(),
       ...(options?.headers || {})
     }
   });

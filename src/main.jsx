@@ -1,13 +1,14 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import {
-  ArrowRight, AudioLines, BookOpen, Brain, ChevronRight, CircleStop, Clapperboard,
-  Download, ExternalLink, Eye, Film, History, MessageCircle, MoonStar, Pause, Play, RotateCcw,
-  Share2, ShieldCheck, Sparkles, Stars, UserRound, Users, WandSparkles, X
+  ArrowRight, AudioLines, BookmarkCheck, BookOpen, Brain, ChevronRight, CircleStop, Clapperboard,
+  Compass, ExternalLink, Eye, Film, Home, MessageCircle, MoonStar, Pause, Play, RotateCcw,
+  Share2, ShieldCheck, Sparkles, Stars, UserRound, WandSparkles, X
 } from 'lucide-react';
 import './styles.css';
 import './dreamlight.css';
 import './community.css';
+import './social.css';
 import { buildInterpretation } from './knowledge.js';
 import ArchiveView from './ArchiveView.jsx';
 import AtlasView from './AtlasView.jsx';
@@ -30,9 +31,26 @@ const SHOTS = [
   { index: '03', title: '无名之人', text: '远处人影转身离开。越靠近，建筑和记忆一起开始溶解。' }
 ];
 
+const SAVED_DREAMS_KEY = 'reverie:saved-dreams';
+const RELATIONS_KEY = 'reverie:relations';
+
+function readLocal(key, fallback) {
+  try {
+    const value = window.localStorage.getItem(key);
+    return value ? JSON.parse(value) : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function makeDreamTitle(text) {
+  const clean = text.replace(/[，。！？、,.!?\n]/g, ' ').trim();
+  return clean.length > 14 ? `${clean.slice(0, 14)}…` : clean || '未命名梦境';
+}
+
 function App() {
   const params = new URLSearchParams(window.location.search);
-  const [page, setPage] = useState(() => ['community', 'archive', 'atlas', 'messages', 'profile'].includes(params.get('page')) ? params.get('page') : 'create');
+  const [page, setPage] = useState(() => ['create', 'community', 'archive', 'atlas', 'messages', 'profile'].includes(params.get('page')) ? params.get('page') : 'community');
   const [messageDream, setMessageDream] = useState(null);
   const [dream, setDream] = useState(EXAMPLES[0]);
   const [style, setStyle] = useState(STYLES[0]);
@@ -45,6 +63,10 @@ function App() {
   const [generationError, setGenerationError] = useState('');
   const [generationLabel, setGenerationLabel] = useState('正在把梦境拆解为画面语言');
   const [videoUrl, setVideoUrl] = useState('');
+  const [savedDreams, setSavedDreams] = useState(() => readLocal(SAVED_DREAMS_KEY, []));
+  const [following, setFollowing] = useState(() => readLocal(RELATIONS_KEY, ['cloud17']));
+  const [saveNotice, setSaveNotice] = useState('');
+  const [autoSavePending, setAutoSavePending] = useState(false);
   const [analysisMode, setAnalysisMode] = useState(() => new URLSearchParams(window.location.search).get('analysis') === 'psychology' ? 'psychology' : 'traditional');
   const interpretation = useMemo(() => buildInterpretation(dream), [dream]);
 
@@ -70,6 +92,46 @@ function App() {
     return '正在合成声音与影像';
   }, [progress]);
 
+  useEffect(() => {
+    window.localStorage.setItem(SAVED_DREAMS_KEY, JSON.stringify(savedDreams));
+  }, [savedDreams]);
+
+  useEffect(() => {
+    window.localStorage.setItem(RELATIONS_KEY, JSON.stringify(following));
+  }, [following]);
+
+  const saveCurrentDream = useCallback((silent = false) => {
+    const savedDream = {
+      id: `saved-${Date.now()}`,
+      createdAt: new Date().toISOString(),
+      title: makeDreamTitle(dream),
+      excerpt: dream.trim(),
+      style,
+      videoUrl,
+      symbols: interpretation.symbols,
+      moods: ['待补充'],
+      hasVideo: Boolean(videoUrl)
+    };
+    setSavedDreams((current) => {
+      const duplicate = current.some((item) => item.excerpt === savedDream.excerpt && item.videoUrl === savedDream.videoUrl);
+      return duplicate ? current : [savedDream, ...current];
+    });
+    if (!silent) {
+      setSaveNotice('已保存到「我的」→「私人梦境档案」');
+      window.setTimeout(() => setSaveNotice(''), 2400);
+    }
+  }, [dream, interpretation.symbols, style, videoUrl]);
+
+  useEffect(() => {
+    if (stage !== 'result' || !autoSavePending) return;
+    saveCurrentDream(true);
+    setAutoSavePending(false);
+  }, [autoSavePending, saveCurrentDream, stage]);
+
+  const toggleFollow = (userId) => {
+    setFollowing((current) => current.includes(userId) ? current.filter((id) => id !== userId) : [...current, userId]);
+  };
+
   const startGeneration = async () => {
     if (!dream.trim()) return;
     if (VIDEO_API_ENABLED && !accessCode.trim()) {
@@ -78,6 +140,7 @@ function App() {
     }
 
     setGenerationError('');
+    setAutoSavePending(true);
     setVideoUrl('');
     setProgress(VIDEO_API_ENABLED ? 8 : 0);
     setGenerationLabel('正在把梦境拆解为画面语言');
@@ -97,6 +160,7 @@ function App() {
       setVideoUrl(result.videoUrl);
       setStage('result');
     } catch (error) {
+      setAutoSavePending(false);
       setGenerationError(error.message || '视频生成失败，请稍后重试');
       setStage('input');
     }
@@ -107,19 +171,20 @@ function App() {
       <div className="grain" />
       <div className="aurora aurora-one" />
       <div className="aurora aurora-two" />
-      <nav className="nav">
-        <button className="brand" onClick={() => { setPage('create'); setStage('input'); }} aria-label="返回首页">
+      <aside className="desktop-sidebar">
+        <button className="brand sidebar-brand" onClick={() => setPage('community')} aria-label="返回首页">
           <span className="brand-mark"><MoonStar size={20} /></span>
-          <span>REVERIE</span>
+          <span><b>REVERIE</b><small>梦境社区</small></span>
         </button>
-        <div className="nav-center">
-          <button className={page === 'create' ? 'nav-item active' : 'nav-item'} onClick={() => { setPage('create'); setStage('input'); }}>造梦</button>
-          <button className={page === 'community' ? 'nav-item active' : 'nav-item'} onClick={() => setPage('community')}>梦境广场</button>
-          <button className={page === 'archive' ? 'nav-item active' : 'nav-item'} onClick={() => setPage('archive')}>梦境记录</button>
-          <button className={page === 'atlas' ? 'nav-item active' : 'nav-item'} onClick={() => setPage('atlas')}>意象图谱</button>
+        <div className="sidebar-nav">
+          <button className={page === 'community' ? 'active' : ''} onClick={() => setPage('community')}><Home size={20} /><span>首页</span></button>
+          <button className={page === 'atlas' ? 'active' : ''} onClick={() => setPage('atlas')}><Compass size={20} /><span>意象探索</span></button>
+          <button className={page === 'messages' ? 'active' : ''} onClick={() => { setMessageDream(null); setPage('messages'); }}><MessageCircle size={20} /><span>消息</span><i>1</i></button>
+          <button className={page === 'profile' ? 'active' : ''} onClick={() => setPage('profile')}><UserRound size={20} /><span>我</span></button>
         </div>
-        <button className={page === 'profile' ? 'history-button profile-button active-profile' : 'history-button profile-button'} onClick={() => setPage('profile')}><UserRound size={17} /><span>亚美</span></button>
-      </nav>
+        <button className="sidebar-create" onClick={() => { setPage('create'); setStage('input'); }}><Sparkles size={19} />记录梦境</button>
+        <div className="sidebar-profile"><span>亚</span><div><b>覃亚美</b><small>@yamei · 12 个梦</small></div></div>
+      </aside>
 
       {page === 'create' && stage === 'input' && (
         <section className="hero-view">
@@ -216,7 +281,8 @@ function App() {
             <div className="result-actions">
               <button onClick={() => setStage('input')}><RotateCcw size={17} /> 再造一个梦</button>
               <button onClick={() => setPage('community')}><Share2 size={17} /> 分享到广场</button>
-              <button className="primary-small"><Download size={17} /> 保存影片</button>
+              <button className="primary-small" onClick={saveCurrentDream}><BookmarkCheck size={17} /> 保存到我的梦境</button>
+              {saveNotice ? <span className="save-notice">{saveNotice}</span> : null}
             </div>
           </header>
 
@@ -321,14 +387,14 @@ function App() {
           </section>
         </section>
       )}
-      {page === 'community' && <CommunityView onCreate={() => { setPage('create'); setStage('input'); }} onMessage={(selectedDream) => { setMessageDream(selectedDream); setPage('messages'); }} />}
-      {page === 'archive' && <ArchiveView onCreate={() => { setPage('create'); setStage('input'); }} onOpenDream={() => { setPage('create'); setStage('result'); }} />}
+      {page === 'community' && <CommunityView following={following} onToggleFollow={toggleFollow} />}
+      {page === 'archive' && <ArchiveView savedDreams={savedDreams} onOpenDream={(selectedDream) => { setDream(selectedDream.excerpt); setPage('create'); setStage('result'); }} />}
       {page === 'atlas' && <AtlasView />}
-      {page === 'messages' && <MessagesView initialDream={messageDream} onBack={() => setPage('community')} />}
-      {page === 'profile' && <ProfileView onCreate={() => { setPage('create'); setStage('input'); }} onArchive={() => setPage('archive')} />}
+      {page === 'messages' && <MessagesView initialDream={messageDream} following={following} onToggleFollow={toggleFollow} />}
+      {page === 'profile' && <ProfileView savedDreams={savedDreams} following={following} onArchive={() => setPage('archive')} />}
       <div className="mobile-nav" aria-label="移动端导航">
-        <button className={page === 'community' ? 'active' : ''} onClick={() => setPage('community')}><Users size={18} /><span>广场</span></button>
-        <button className={page === 'archive' ? 'active' : ''} onClick={() => setPage('archive')}><History size={18} /><span>记录</span></button>
+        <button className={page === 'community' ? 'active' : ''} onClick={() => setPage('community')}><Home size={18} /><span>首页</span></button>
+        <button className={page === 'atlas' ? 'active' : ''} onClick={() => setPage('atlas')}><Compass size={18} /><span>意象</span></button>
         <button className={page === 'create' ? 'active mobile-create' : 'mobile-create'} onClick={() => { setPage('create'); setStage('input'); }}><Sparkles size={18} /><span>造梦</span></button>
         <button className={page === 'messages' ? 'active' : ''} onClick={() => { setMessageDream(null); setPage('messages'); }}><MessageCircle size={18} /><span>消息</span></button>
         <button className={page === 'profile' ? 'active' : ''} onClick={() => setPage('profile')}><UserRound size={18} /><span>我的</span></button>

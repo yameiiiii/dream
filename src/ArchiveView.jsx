@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { CalendarDays, ChevronRight, Clock3, Film, Heart, Search, SlidersHorizontal, Sparkles, Tags, TrendingUp, X } from 'lucide-react';
+import { CalendarDays, ChevronRight, Clock3, Film, Heart, Search, SlidersHorizontal, Tags, TrendingUp, X } from 'lucide-react';
 
 const DAY = 86400000;
 const daysAgo = (count) => new Date(Date.now() - count * DAY);
@@ -42,7 +42,7 @@ function statusText(dream) {
   return '仅文字记录';
 }
 
-export default function ArchiveView({ onOpenDream, onCreate }) {
+export default function ArchiveView({ onOpenDream, savedDreams = [] }) {
   const [query, setQuery] = useState('');
   const [dateFilter, setDateFilter] = useState('month');
   const [moodFilter, setMoodFilter] = useState('全部情绪');
@@ -50,7 +50,19 @@ export default function ArchiveView({ onOpenDream, onCreate }) {
   const [summaryPeriod, setSummaryPeriod] = useState('week');
   const [customRange, setCustomRange] = useState({ start: iso(daysAgo(30)), end: iso(new Date()) });
 
-  const list = useMemo(() => DREAMS.filter((dream) => {
+  const allDreams = useMemo(() => [
+    ...savedDreams.map((dream) => ({
+      ...dream,
+      date: new Date(dream.createdAt),
+      color: 'lilac',
+      duration: dream.hasVideo ? '00:05' : null,
+      parsed: true,
+      favorite: false
+    })),
+    ...DREAMS
+  ].sort((first, second) => second.date - first.date), [savedDreams]);
+
+  const list = useMemo(() => allDreams.filter((dream) => {
     const now = new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     const matchQuery = `${dream.title}${dream.excerpt}${dream.symbols.join('')}`.includes(query.trim());
@@ -61,23 +73,22 @@ export default function ArchiveView({ onOpenDream, onCreate }) {
     if (dateFilter === 'quarter') matchDate = now - dream.date <= 90 * DAY;
     if (dateFilter === 'custom') matchDate = dream.date >= new Date(`${customRange.start}T00:00:00`) && dream.date <= new Date(`${customRange.end}T23:59:59`);
     return matchQuery && matchMood && matchDate;
-  }), [query, dateFilter, moodFilter, customRange]);
+  }), [allDreams, query, dateFilter, moodFilter, customRange]);
 
   const summary = SUMMARY[summaryPeriod];
 
   return (
     <section className="subpage archive-page">
-      <header className="subpage-hero">
+      <header className="subpage-hero archive-simple-hero">
         <div>
           <div className="eyebrow"><CalendarDays size={14} /> PRIVATE DREAM ARCHIVE</div>
-          <h1>梦境记录</h1>
-          <p>按时间回看梦境，也观察一段时间内反复出现的情绪。</p>
+          <h1>私人梦境档案</h1>
+          <p>自动保存每次生成结果，按时间回看梦境与情绪变化。</p>
         </div>
-        <button className="subpage-primary" onClick={onCreate}><Sparkles size={17} /> 记录昨夜的梦</button>
       </header>
 
       <div className="archive-overview emotion-overview">
-        <div><span>本月记录</span><b>04</b><small>比上月多 1 个梦</small></div>
+        <div><span>本月记录</span><b>{String(allDreams.filter((dream) => dream.date >= new Date(new Date().getFullYear(), new Date().getMonth(), 1)).length).padStart(2, '0')}</b><small>新生成的梦会保存在这里</small></div>
         <div><span>连续记录</span><b>06 天</b><small>最长连续 9 天</small></div>
         <div><span>最常出现</span><b>水</b><small>本月出现 3 次</small></div>
         <div className="month-orbit"><i /><em>SEP</em><strong>29</strong><small>最近一次记录</small></div>
@@ -101,7 +112,6 @@ export default function ArchiveView({ onOpenDream, onCreate }) {
         </div>
       </section>
 
-      <div className="archive-section-title"><div><span>DREAM TIMELINE</span><h2>按日期回看</h2></div><small>共 {DREAMS.length} 条梦境记录</small></div>
       <div className="archive-date-tabs" aria-label="日期筛选">
         {DATE_FILTERS.map((item) => <button key={item.id} className={dateFilter === item.id ? 'active' : ''} onClick={() => setDateFilter(item.id)}>{item.label}</button>)}
       </div>
@@ -109,15 +119,15 @@ export default function ArchiveView({ onOpenDream, onCreate }) {
 
       <div className="archive-tools redesigned">
         <label><Search size={16} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索梦境、地点或意象" /></label>
-        <button className={showMood || moodFilter !== '全部情绪' ? 'mood-filter-button active' : 'mood-filter-button'} onClick={() => setShowMood(!showMood)}><SlidersHorizontal size={15} /> 情绪筛选{moodFilter !== '全部情绪' && <b>1</b>}</button>
+        <button className={showMood || moodFilter !== '全部情绪' ? 'mood-filter-button active' : 'mood-filter-button'} onClick={() => setShowMood(!showMood)}><SlidersHorizontal size={15} /> 情绪筛选{moodFilter !== '全部情绪' ? <b>1</b> : null}</button>
       </div>
-      {showMood && <div className="mood-filter-panel"><div><span>梦中情绪</span><small>每个梦可以保留多个情绪标签</small></div><div className="mood-filter-chips">{MOODS.map((mood) => <button key={mood} className={moodFilter === mood ? 'active' : ''} onClick={() => setMoodFilter(mood)}>{mood}</button>)}</div>{moodFilter !== '全部情绪' && <button className="clear-mood" onClick={() => setMoodFilter('全部情绪')}><X size={13} />清除</button>}</div>}
+      {showMood ? <div className="mood-filter-panel"><div><span>梦中情绪</span><small>每个梦可以保留多个情绪标签</small></div><div className="mood-filter-chips">{MOODS.map((mood) => <button key={mood} className={moodFilter === mood ? 'active' : ''} onClick={() => setMoodFilter(mood)}>{mood}</button>)}</div>{moodFilter !== '全部情绪' ? <button className="clear-mood" onClick={() => setMoodFilter('全部情绪')}><X size={13} />清除</button> : null}</div> : null}
 
       <div className="archive-result-meta"><span>{list.length} 条记录</span><small>按记录时间倒序</small></div>
       <div className="archive-list">
         {list.map((dream) => <article className="archive-card" key={dream.id} onClick={() => onOpenDream(dream)}>
           <div className="archive-date"><b>{displayDate(dream.date)}</b><small>{dream.date.getFullYear()}</small></div>
-          <div className={`archive-visual ${dream.color}`}><div className="archive-orb" /><span>{dream.hasVideo ? <><Film size={14} /> {dream.duration}</> : '文字梦境'}</span>{dream.favorite && <i className="favorite-mark"><Heart size={12} fill="currentColor" /></i>}</div>
+          <div className={`archive-visual ${dream.color}`}><div className="archive-orb" /><span>{dream.hasVideo ? <><Film size={14} /> {dream.duration}</> : '文字梦境'}</span>{dream.favorite ? <i className="favorite-mark"><Heart size={12} fill="currentColor" /></i> : null}</div>
           <div className="archive-copy"><div className="archive-card-meta"><div>{dream.moods.map((mood) => <span key={mood}>{mood}</span>)}</div><small>{statusText(dream)}</small></div><h2>{dream.title}</h2><p>{dream.excerpt}</p><div className="archive-tags"><Tags size={12} />{dream.symbols.map((symbol) => <b key={symbol}>{symbol}</b>)}</div></div>
           <button className="archive-open" aria-label={`打开${dream.title}`}><ChevronRight size={20} /></button>
         </article>)}

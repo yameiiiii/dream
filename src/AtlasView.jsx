@@ -1,5 +1,11 @@
 import React, { useMemo, useState } from 'react';
-import { BookOpen, Brain, ChevronRight, Cloud, Flame, Home, Search, Sparkles, Waves, Wind } from 'lucide-react';
+import { BookOpen, Brain, ChevronRight, Cloud, Flame, HeartHandshake, Home, MessagesSquare, Orbit, Search, Sparkles, Waves, Wind } from 'lucide-react';
+
+const SERVICES = [
+  { icon: MessagesSquare, title: '心理咨询', text: '由认证咨询师提供一对一支持，围绕睡眠、压力与反复梦境进行沟通。', price: '¥299 起 / 次', tag: '专业支持' },
+  { icon: HeartHandshake, title: '心理治疗转介', text: '当梦境持续影响睡眠和日间生活时，协助查找合规医疗与心理服务。', price: '查看服务', tag: '机构合作' },
+  { icon: Orbit, title: '玄学文化解读', text: '从民俗与传统文化文本出发进行娱乐性解读，不提供现实预测。', price: '¥49 起 / 次', tag: '文化体验' }
+];
 
 const SYMBOLS = [
   { id: 'water', name: '水', category: '自然', count: 3, icon: Waves, tone: 'blue', keywords: ['海', '河流', '淹没'], traditional: '古代梦书会按照水的清浊、涨落以及涉水、落水等情境分别占断，不存在统一的“水等于财富”。', psychology: '比起固定象征，可以关注梦里的水给你带来的感受，以及它是否与近期难以控制或不断变化的经历相似。', question: '水是平静、清澈，还是让你无法前进？' },
@@ -61,6 +67,12 @@ export default function AtlasView() {
           <div className="detail-history"><span>在你的梦中</span><div className="history-line"><i /><p><b>09 · 18</b> 紫色海城</p></div><div className="history-line"><i /><p><b>08 · 04</b> 雨后的车站</p></div></div>
         </aside>
       </div>
+
+      <section className="atlas-services">
+        <header><div><span>PROFESSIONAL SERVICES</span><h2>进一步支持</h2></div><small>服务由第三方专业人员或机构提供</small></header>
+        <div>{SERVICES.map((service) => { const ServiceIcon = service.icon; return <article key={service.title}><span><ServiceIcon size={22} /></span><em>{service.tag}</em><h3>{service.title}</h3><p>{service.text}</p><button>{service.price}<ChevronRight size={15} /></button></article>; })}</div>
+        <p className="service-disclaimer">心理咨询与治疗服务需核验服务方资质；玄学解读仅为文化娱乐体验。紧急心理危机请联系当地急救或专业援助机构。</p>
+      </section>
     </section>
   );
 }
